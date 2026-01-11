@@ -1,6 +1,6 @@
 import { useState } from "react";
 import LeaveStatusBadge from "./LeaveStatusBadge";
-import LeaveDetailsDialog from "./LeaveDetailsDialog";
+import LeaveDetailsDialog from "../common/LeaveDetailsDialog";
 import AlertModal from "@/components/common/AlertModal";
 import TablePagination from "@/components/common/Pagination";
 import { Minus } from "lucide-react";

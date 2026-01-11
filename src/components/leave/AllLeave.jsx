@@ -22,7 +22,7 @@ export default function AllLeave() {
   });
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3">
+    <div className="bg-white rounded-lg border border-gray-200 p-3">
       {/* HEADER */}
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-sm font-semibold text-gray-900">

@@ -1,6 +1,5 @@
+import { useEffect } from "react"
 import { useForm } from "react-hook-form"
-import { z } from "zod"
-import { zodResolver } from "@hookform/resolvers/zod"
 import {
   Form,
   FormField,
@@ -22,12 +21,12 @@ import { Textarea } from "@/components/ui/textarea"
 import { useLeaveStore } from "@/hooks/useLeaveStore"
 import { leaveTypes } from "@/data/leaveTypes"
 
-export default function LeaveForm({ onSuccess }) {
+export default function LeaveForm({ defaultLeaveType = null, onSuccess }) {
   const { requestLeave } = useLeaveStore()
 
   const form = useForm({
     defaultValues: {
-      type: "",
+      type: "", // leave code
       startDate: "",
       endDate: "",
       reason: "",
@@ -35,9 +34,18 @@ export default function LeaveForm({ onSuccess }) {
     },
   })
 
-  const type = form.watch("type")
+  // If defaultLeaveType changes, update the form value
+  useEffect(() => {
+    if (defaultLeaveType) {
+      form.setValue("type", defaultLeaveType)
+    }
+  }, [defaultLeaveType, form])
+
+  const typeCode = form.watch("type")
   const startDate = form.watch("startDate")
   const endDate = form.watch("endDate")
+
+  const selectedLeave = leaveTypes.find((lt) => lt.code === typeCode)
 
   const calculateDuration = (start, end) => {
     if (!start || !end) return 0
@@ -55,31 +63,39 @@ export default function LeaveForm({ onSuccess }) {
       return
     }
 
-    // Require document if sick leave
-    if (type === "Sick Leave" && !data.document) {
-      alert("Supporting document is required for Sick Leave.")
+    if (selectedLeave?.requiresAttachment && !data.document) {
+      alert(`Supporting document is required for ${selectedLeave.name}.`)
       return
     }
 
     requestLeave({
       ...data,
+      leaveName: selectedLeave?.name,
       duration,
       employee: "Ransh Dy",
       status: "Pending",
     })
 
     form.reset()
-    if (onSuccess) onSuccess()
+    onSuccess?.()
   }
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="bg-white rounded-xl p-4 space-y-4">
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="bg-white rounded-xl p-4 space-y-4"
+      >
         <div className="text-center">
-          <h2 className="text-lg font-semibold text-gray-900">Leave Request</h2>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Leave Request
+          </h2>
           {duration > 0 && (
             <p className="text-sm text-gray-500 mt-1">
-              Duration: <span className="font-medium">{duration} {duration > 1 ? "days" : "day"}</span>
+              Duration:{" "}
+              <span className="font-medium">
+                {duration} {duration > 1 ? "days" : "day"}
+              </span>
             </p>
           )}
         </div>
@@ -98,7 +114,7 @@ export default function LeaveForm({ onSuccess }) {
                   </SelectTrigger>
                   <SelectContent>
                     {leaveTypes.map((lt) => (
-                      <SelectItem key={lt.code} value={lt.name}>
+                      <SelectItem key={lt.code} value={lt.code}>
                         {lt.name}
                       </SelectItem>
                     ))}
@@ -148,7 +164,11 @@ export default function LeaveForm({ onSuccess }) {
             <FormItem>
               <FormLabel className="text-sm">Reason (Optional)</FormLabel>
               <FormControl>
-                <Textarea placeholder="Enter reason" {...field} className="h-20 rounded-md" />
+                <Textarea
+                  placeholder="Enter reason"
+                  {...field}
+                  className="h-20 rounded-md"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -156,29 +176,28 @@ export default function LeaveForm({ onSuccess }) {
         />
 
         {/* Upload Document */}
-       <FormField
-  control={form.control}
-  name="document"
-  render={({ field }) => (
-    <FormItem>
-      <FormLabel className="text-sm">
-        Supporting Document {type === "Sick Leave" && <span className="text-red-500">*</span>}
-      </FormLabel>
-      <FormControl>
-        <Input
-          type="file"
-          className="h-10 rounded-md"
-          onChange={(e) => {
-            const file = e.target.files?.[0] || null;
-            field.onChange(file); // Set the file object properly
-          }}
+        <FormField
+          control={form.control}
+          name="document"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-sm">
+                Supporting Document{" "}
+                {selectedLeave?.requiresAttachment && (
+                  <span className="text-red-500">*</span>
+                )}
+              </FormLabel>
+              <FormControl>
+                <Input
+                  type="file"
+                  className="h-10 rounded-md"
+                  onChange={(e) => field.onChange(e.target.files?.[0] || null)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
-      </FormControl>
-      <FormMessage />
-    </FormItem>
-  )}
-/>
-
 
         <Button type="submit" className="w-full h-10 rounded-md">
           Submit Request

@@ -1,186 +1,113 @@
 import { useState } from "react";
 import { useLeaveStore } from "@/hooks/useLeaveStore";
-import {
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-  getDay,
-  format,
-  isWithinInterval,
-  parseISO,
-  addMonths,
-  subMonths,
-} from "date-fns";
+import { leaveTypes, leaveGeneralNote } from "@/data/leaveTypes";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import LeaveForm from "@/components/leave/LeaveForm";
 
-const LeaveBalance = ({ employeeName = "Ransh Dy" }) => {
-  const { leaveBalance, leaves } = useLeaveStore();
-  const [month, setMonth] = useState(new Date());
-
-  return (
-    <div className="mt-6 space-y-8">
-      {/* Leave Balance Cards */}
-{Object.entries(leaveBalance).length > 0 && (
-  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-    {Object.entries(leaveBalance).map(([type, remaining]) => {
-      // Side border color per leave type
-      const borderColor = {
-        "Vacation Leave": "border-l-green-500",
-        "Sick Leave": "border-l-purple-500",
-        "Wellness Leave": "border-l-blue-500",
-      };
-
-      // Icon background color (subtle)
-      const iconBg = {
-        "Vacation Leave": "bg-green-100 text-green-700",
-        "Sick Leave": "bg-purple-100 text-purple-700",
-        "Wellness Leave": "bg-blue-100 text-blue-700",
-      };
-
-      return (
-        <div
-          key={type}
-          className={`flex items-center gap-4 p-6 rounded-xl border border-gray-200 border-l-4 
-          ${borderColor[type] || "border-l-gray-400"} 
-          bg-white shadow-sm hover:shadow-md transition`}
-        >
-          <div
-            className={`h-12 w-12 flex items-center justify-center rounded-full 
-            ${iconBg[type] || "bg-gray-100 text-gray-700"} 
-            font-bold`}
-          >
-            {type[0]}
-          </div>
-
-          <div>
-            <p className="text-sm text-gray-500 font-medium">{type}</p>
-            <p className="text-3xl font-semibold text-gray-900">{remaining}</p>
-            <p className="text-xs text-gray-400">days remaining</p>
-          </div>
-        </div>
-      );
-    })}
-  </div>
-)}
-
-
-
-      {/* Month Navigation */}
-      <div className="flex justify-center items-center mt-6 mb-4 gap-4">
-        <button
-          className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
-          onClick={() => setMonth(subMonths(month, 1))}
-          aria-label="Previous Month"
-        >
-          &lt;
-        </button>
-        <h2 className="text-xl font-bold tracking-wide">
-          {format(month, "MMMM yyyy")}
-        </h2>
-        <button
-          className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
-          onClick={() => setMonth(addMonths(month, 1))}
-          aria-label="Next Month"
-        >
-          &gt;
-        </button>
-      </div>
-
-      {/* Single Month Calendar */}
-      <LeaveMonthCalendar employeeName={employeeName} leaves={leaves} month={month} />
-    </div>
-  );
-};
-
-function LeaveMonthCalendar({ employeeName, leaves, month }) {
-  const employeeLeaves = leaves.filter((l) => l.employee === employeeName);
+export default function LeaveBalance({ employeeName = "Ransh Dy" }) {
+  const leaveBalance = useLeaveStore((s) => s.leaveBalance);
+  const [selectedLeave, setSelectedLeave] = useState(null);
+  const [openForm, setOpenForm] = useState(false);
+  const [defaultLeaveType, setDefaultLeaveType] = useState(null);
 
   const leaveTypeColors = {
-    "Vacation Leave": "bg-green-300",
-    "Sick Leave": "bg-purple-300",
-    "Wellness Leave": "bg-blue-300",
+    VL: "bg-green-400",
+    SL: "bg-purple-400",
+    MFL: "bg-blue-400",
+    SPL: "bg-yellow-400",
+    SOPL: "bg-pink-400",
+    SECL: "bg-indigo-400",
+    ML: "bg-pink-500",
+    PL: "bg-teal-400",
+    SLD: "bg-gray-400",
+    VAWC: "bg-red-400",
+    RL: "bg-cyan-400",
+    SPLW: "bg-amber-400",
+    MLC: "bg-gray-500",
+    TL: "bg-gray-700",
+    AL: "bg-green-600",
   };
 
-  const monthStart = startOfMonth(month);
-  const monthEnd = endOfMonth(month);
-  const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
-
-  // Calculate empty days before first day to align weekdays
-  const leadingEmptyDays = Array(getDay(monthStart)).fill(null);
-
-  const getLeaveForDay = (day) => {
-    return employeeLeaves.find((l) =>
-      isWithinInterval(day, {
-        start: parseISO(l.startDate),
-        end: parseISO(l.endDate),
-      })
-    );
+  const handleApplyLeave = (code) => {
+    setDefaultLeaveType(code); // pre-fill the LeaveForm
+    setOpenForm(true);          // open the LeaveForm
+    setSelectedLeave(null);     // close the card dialog
   };
 
   return (
-  <div className="bg-white p-4 rounded-2xl shadow-lg w-full mx-auto overflow-x-auto">
-    <table className="w-full border-collapse border border-gray-200 min-w-[600px]">
-      <thead>
-        <tr className="bg-gray-100">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-            <th
-              key={d}
-              className="border border-gray-300 text-gray-700 py-2 text-center font-semibold text-xs uppercase"
+    <div className="mt-6">
+      <h2 className="text-lg font-bold mb-4">Leave Balance</h2>
+
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+        {leaveTypes.map((leave) => {
+          const remaining = leaveBalance[leave.code] ?? 0;
+
+          return (
+            <Dialog
+              key={leave.code}
+              open={selectedLeave?.code === leave.code}
+              onOpenChange={(open) => !open && setSelectedLeave(null)}
             >
-              {d}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {[...Array(Math.ceil((leadingEmptyDays.length + daysInMonth.length) / 7))].map(
-          (_, weekIndex) => (
-            <tr key={weekIndex}>
-              {[...Array(7)].map((__, dayIndex) => {
-                const dayIndexInMonth = weekIndex * 7 + dayIndex;
-                let dayToShow = null;
-
-                if (dayIndexInMonth < leadingEmptyDays.length) {
-                  dayToShow = null;
-                } else {
-                  const dayNumber = dayIndexInMonth - leadingEmptyDays.length;
-                  dayToShow = daysInMonth[dayNumber];
-                }
-
-                if (!dayToShow) {
-                  return <td key={dayIndex} className="border border-gray-200 p-2"></td>;
-                }
-
-                const leave = getLeaveForDay(dayToShow);
-                let colorClass = "";
-
-                if (leave) {
-                  if (leave.status === "Pending") {
-                    colorClass = "bg-gray-300 text-gray-800";
-                  } else if (leave.status === "Approved") {
-                    colorClass = `${leaveTypeColors[leave.type] || "bg-green-400"} text-white shadow-md`;
-                  } else if (leave.status === "Rejected") {
-                    colorClass = "bg-red-400 text-white shadow-md";
-                  }
-                }
-
-                return (
-                  <td
-                    key={dayIndex}
-                    className={`border border-gray-200 text-center p-2 rounded cursor-default select-none ${colorClass} hover:shadow-md transition-shadow`}
-                    title={leave ? `${leave.type} (${leave.status}): ${leave.startDate} → ${leave.endDate}` : ""}
+              <DialogTrigger asChild>
+                <div
+                  className="flex flex-col items-center justify-center p-5 bg-white border border-gray-200 rounded-xl shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+                  onClick={() => setSelectedLeave(leave)}
+                >
+                  <div
+                    className={`h-12 w-12 flex items-center justify-center rounded-full font-semibold text-lg ${
+                      leaveTypeColors[leave.code] || "bg-gray-300 text-gray-700"
+                    }`}
                   >
-                    {format(dayToShow, "d")}
-                  </td>
-                );
-              })}
-            </tr>
-          )
-        )}
-      </tbody>
-    </table>
-  </div>
-);
+                    {leave.code}
+                  </div>
+                  <p className="text-sm text-gray-600 text-center truncate mt-3">{leave.name}</p>
 
+                  <div className="w-full mt-3">
+                    <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
+                      <div
+                        className={`${leaveTypeColors[leave.code] || "bg-gray-400"} h-3 rounded-full transition-all duration-300`}
+                        style={{ width: `${Math.min((remaining / 15) * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  <p className="text-sm font-semibold text-gray-700 mt-3">{remaining} days</p>
+                </div>
+              </DialogTrigger>
+
+              <DialogContent className="sm:max-w-lg">
+                <h3 className="text-lg font-bold mb-2">
+                  {selectedLeave?.name} ({selectedLeave?.code})
+                </h3>
+                <p className="text-gray-700 mb-2 font-medium">{selectedLeave?.description}</p>
+
+                <ul className="list-disc list-inside text-gray-600 mb-4">
+                  {selectedLeave?.instructions?.map((inst, idx) => (
+                    <li key={idx}>{inst}</li>
+                  ))}
+                </ul>
+
+                <p className="text-gray-500 mb-4 italic">{leaveGeneralNote}</p>
+
+                <Button onClick={() => handleApplyLeave(selectedLeave?.code)}>
+                  Apply Leave
+                </Button>
+              </DialogContent>
+            </Dialog>
+          );
+        })}
+      </div>
+
+      {/* LeaveForm dialog */}
+      <Dialog open={openForm} onOpenChange={setOpenForm}>
+        <DialogContent className="sm:max-w-xl">
+          <LeaveForm
+            defaultLeaveType={defaultLeaveType} // pre-filled
+            onSuccess={() => setOpenForm(false)}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }
-
-export default LeaveBalance;
